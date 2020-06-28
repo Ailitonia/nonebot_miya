@@ -1,0 +1,9 @@
+nonebot~=1.6.0
+requests~=2.24.0
+zhdate~=0.1
+nonebot[scheduler]
+sqlalchemy~=1.3.17
+mysqlclient
+aiocqhttp~=1.2.5
+bs4
+lxml
