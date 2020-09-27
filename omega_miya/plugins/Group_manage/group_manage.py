@@ -1,6 +1,7 @@
 from omega_miya.database import *
+from nonebot import log
 from datetime import datetime
-import re
+# import re
 
 
 # 查询所有已存在用户的qq号
@@ -21,48 +22,73 @@ def query_group_list() -> list:
 
 # 添加非重复用户信息到数据库
 async def add_member_to_db(user_qq, user_nickname) -> bool:
-    user_nickname = re.sub(r'\W+', '', user_nickname)
+    # user_nickname = re.sub(r'\W+', '', user_nickname)
+    user_nickname = str(user_nickname)
     exist_user_qq = query_member_list()
     if user_qq in exist_user_qq:
         # 昵称有变动则更新成员表昵称
         if not user_nickname == NONEBOT_DBSESSION.query(User.nickname).filter(User.qq == user_qq).first()[0]:
-            __exist_user = NONEBOT_DBSESSION.query(User).filter(User.qq == user_qq).first()
-            __exist_user.nickname = user_nickname
-            __exist_user.updated_at = datetime.now()
-            NONEBOT_DBSESSION.commit()
-            return True
+            try:
+                __exist_user = NONEBOT_DBSESSION.query(User).filter(User.qq == user_qq).first()
+                __exist_user.nickname = user_nickname
+                __exist_user.updated_at = datetime.now()
+                NONEBOT_DBSESSION.commit()
+                return True
+            except Exception as e:
+                NONEBOT_DBSESSION.rollback()
+                log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+                return False
+        return True
     else:
         # 成员表中添加新成员
-        __new_user = User(qq=user_qq, nickname=user_nickname, created_at=datetime.now())
-        NONEBOT_DBSESSION.add(__new_user)
-        NONEBOT_DBSESSION.commit()
-        return True
+        try:
+            __new_user = User(qq=user_qq, nickname=user_nickname, created_at=datetime.now())
+            NONEBOT_DBSESSION.add(__new_user)
+            NONEBOT_DBSESSION.commit()
+            return True
+        except Exception as e:
+            NONEBOT_DBSESSION.rollback()
+            log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+            return False
 
 
 # 添加非重复qq群信息到数据库
 async def add_group_to_db(group_id, group_name) -> bool:
-    group_name = re.sub(r'\W+', '', group_name)
+    # group_name = re.sub(r'\W+', '', group_name)
+    group_name = str(group_name)
     exist_group_id = query_group_list()
     if group_id in exist_group_id:
         # 群名称有变动则更新群名称
         if not group_name == NONEBOT_DBSESSION.query(Group.name).filter(Group.group_id == group_id).first()[0]:
-            __exist_group = NONEBOT_DBSESSION.query(Group).filter(Group.group_id == group_id).first()
-            __exist_group.nickname = group_name
-            __exist_group.updated_at = datetime.now()
-            NONEBOT_DBSESSION.commit()
-            return True
+            try:
+                __exist_group = NONEBOT_DBSESSION.query(Group).filter(Group.group_id == group_id).first()
+                __exist_group.name = group_name
+                __exist_group.updated_at = datetime.now()
+                NONEBOT_DBSESSION.commit()
+                return True
+            except Exception as e:
+                NONEBOT_DBSESSION.rollback()
+                log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+                return False
+        return True
     else:
         # 成员表中添加新群组
-        __new_group = Group(group_id=group_id, name=group_name, noitce_permissions=0,
-                            command_permissions=0, admin_permissions=0, created_at=datetime.now())
-        NONEBOT_DBSESSION.add(__new_group)
-        NONEBOT_DBSESSION.commit()
-        return True
+        try:
+            __new_group = Group(group_id=group_id, name=group_name, noitce_permissions=0,
+                                command_permissions=0, admin_permissions=0, created_at=datetime.now())
+            NONEBOT_DBSESSION.add(__new_group)
+            NONEBOT_DBSESSION.commit()
+            return True
+        except Exception as e:
+            NONEBOT_DBSESSION.rollback()
+            log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+            return False
 
 
 # 添加非重复用户_所属群组信息到数据库
 async def add_member_group_to_db(user_qq, group_id, user_group_nickmane) -> bool:
-    user_group_nickmane = re.sub(r'\W+', '', user_group_nickmane)
+    # user_group_nickmane = re.sub(r'\W+', '', user_group_nickmane)
+    user_group_nickmane = str(user_group_nickmane)
     exist_user_qq = query_member_list()
     exist_group_id = query_group_list()
     # 不在成员表中的qq跳过
@@ -75,7 +101,7 @@ async def add_member_group_to_db(user_qq, group_id, user_group_nickmane) -> bool
     __user_table_id = NONEBOT_DBSESSION.query(User.id).filter(User.qq == user_qq).first()[0]
     # 查这个群组在群组表中的id（不是群号）
     __group_table_id = NONEBOT_DBSESSION.query(Group.id).filter(Group.group_id == group_id).first()[0]
-    # 查询成员-群组表中所有成员的qq，这个人用户-群关系已存在
+    # 查询成员-群组表中所有成员的qq, 这个人用户-群关系已存在
     __result = []
     for __res in NONEBOT_DBSESSION.query(User.qq). \
             join(UserGroup).join(Group). \
@@ -84,21 +110,34 @@ async def add_member_group_to_db(user_qq, group_id, user_group_nickmane) -> bool
             filter(Group.group_id == group_id). \
             order_by(User.id).all():
         __result.append(__res[0])
-    # 群组-成员表里面这个人用户-群关系已存在，更新用户昵称
+    # 群组-成员表里面这个人用户-群关系已存在, 更新用户昵称
     if user_qq in __result:
-        __exist_user = NONEBOT_DBSESSION.query(UserGroup).filter(UserGroup.user_id == __user_table_id).first()
-        __exist_user.user_group_nickname = user_group_nickmane
-        __exist_user.updated_at = datetime.now()
-        NONEBOT_DBSESSION.commit()
-        return True
-    # 群组-成员表里面这个人用户-群关系不存在，更新用户-群组关联
+        try:
+            __exist_user = NONEBOT_DBSESSION.query(UserGroup). \
+                filter(UserGroup.user_id == __user_table_id). \
+                filter(UserGroup.group_id == __group_table_id). \
+                first()
+            __exist_user.user_group_nickname = user_group_nickmane
+            __exist_user.updated_at = datetime.now()
+            NONEBOT_DBSESSION.commit()
+            return True
+        except Exception as e:
+            NONEBOT_DBSESSION.rollback()
+            log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+            return False
+    # 群组-成员表里面这个人用户-群关系不存在, 更新用户-群组关联
     else:
         # 添加新成员
-        __new_user = UserGroup(user_id=__user_table_id, group_id=__group_table_id,
-                               user_group_nickname=user_group_nickmane)
-        NONEBOT_DBSESSION.add(__new_user)
-        NONEBOT_DBSESSION.commit()
-        return True
+        try:
+            __new_user = UserGroup(user_id=__user_table_id, group_id=__group_table_id,
+                                   user_group_nickname=user_group_nickmane, created_at=datetime.now())
+            NONEBOT_DBSESSION.add(__new_user)
+            NONEBOT_DBSESSION.commit()
+            return True
+        except Exception as e:
+            NONEBOT_DBSESSION.rollback()
+            log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+            return False
 
 
 # 重置非重复用户状态信息到数据库
@@ -119,19 +158,29 @@ async def reset_member_status_to_db(user_qq) -> bool:
             filter(User.id == Vocation.user_id). \
             filter(User.qq == user_qq). \
             first()
-        __exist_user.status = 0
-        __exist_user.stop_at = None
-        __exist_user.reason = None
-        __exist_user.updated_at = datetime.now()
-        NONEBOT_DBSESSION.commit()
-        return True
+        try:
+            __exist_user.status = 0
+            __exist_user.stop_at = None
+            __exist_user.reason = None
+            __exist_user.updated_at = datetime.now()
+            NONEBOT_DBSESSION.commit()
+            return True
+        except Exception as e:
+            NONEBOT_DBSESSION.rollback()
+            log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+            return False
     else:
         # 假期表中添加新成员
-        __user_id = NONEBOT_DBSESSION.query(User.id).filter(User.qq == user_qq).first()[0]
-        __new_user = Vocation(user_id=__user_id, status=0)
-        NONEBOT_DBSESSION.add(__new_user)
-        NONEBOT_DBSESSION.commit()
-        return True
+        try:
+            __user_id = NONEBOT_DBSESSION.query(User.id).filter(User.qq == user_qq).first()[0]
+            __new_user = Vocation(user_id=__user_id, status=0)
+            NONEBOT_DBSESSION.add(__new_user)
+            NONEBOT_DBSESSION.commit()
+            return True
+        except Exception as e:
+            NONEBOT_DBSESSION.rollback()
+            log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+            return False
 
 
 # 重置非重复群组权限到数据库
@@ -140,13 +189,18 @@ async def reset_group_permissions_to_db(group_id) -> bool:
     # 不在群组表中的qq群跳过
     if group_id not in exist_group_id:
         return False
-    __exist_group = NONEBOT_DBSESSION.query(Group).filter(Group.group_id == group_id).first()
-    __exist_group.noitce_permissions = 0
-    __exist_group.command_permissions = 0
-    __exist_group.admin_permissions = 0
-    __exist_group.updated_at = datetime.now()
-    NONEBOT_DBSESSION.commit()
-    return True
+    try:
+        __exist_group = NONEBOT_DBSESSION.query(Group).filter(Group.group_id == group_id).first()
+        __exist_group.noitce_permissions = 0
+        __exist_group.command_permissions = 0
+        __exist_group.admin_permissions = 0
+        __exist_group.updated_at = datetime.now()
+        NONEBOT_DBSESSION.commit()
+        return True
+    except Exception as e:
+        NONEBOT_DBSESSION.rollback()
+        log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+        return False
 
 
 # 设置已有群组权限到数据库
@@ -156,13 +210,18 @@ async def set_group_permissions_to_db(group_id,
     # 不在群组表中的qq群跳过
     if group_id not in exist_group_id:
         return False
-    __exist_group = NONEBOT_DBSESSION.query(Group).filter(Group.group_id == group_id).first()
-    __exist_group.noitce_permissions = noitce_permissions
-    __exist_group.command_permissions = command_permissions
-    __exist_group.admin_permissions = admin_permissions
-    __exist_group.updated_at = datetime.now()
-    NONEBOT_DBSESSION.commit()
-    return True
+    try:
+        __exist_group = NONEBOT_DBSESSION.query(Group).filter(Group.group_id == group_id).first()
+        __exist_group.noitce_permissions = noitce_permissions
+        __exist_group.command_permissions = command_permissions
+        __exist_group.admin_permissions = admin_permissions
+        __exist_group.updated_at = datetime.now()
+        NONEBOT_DBSESSION.commit()
+        return True
+    except Exception as e:
+        NONEBOT_DBSESSION.rollback()
+        log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+        return False
 
 
 # 查询群组权限

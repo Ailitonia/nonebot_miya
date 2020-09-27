@@ -24,7 +24,6 @@ class User(Base):
     has_skills = relationship('UserSkill', back_populates='user_skill')
     in_which_groups = relationship('UserGroup', back_populates='user_groups')
     vocation = relationship('Vocation', back_populates='vocation_for_user', uselist=False)
-    can_persecuted = relationship('Persecution', back_populates='user_persecutions_status', uselist=False)
 
     def __init__(self, qq, nickname, aliasname=None, created_at=None, updated_at=None):
         self.qq = qq
@@ -104,6 +103,7 @@ class Group(Base):
     updated_at = Column(DateTime, nullable=True)
 
     avaiable_groups = relationship('UserGroup', back_populates='groups_have_users')
+    sub_what = relationship('GroupSub', back_populates='groups_sub')
 
     def __init__(self, name, group_id, noitce_permissions, command_permissions,
                  admin_permissions, created_at=None, updated_at=None):
@@ -150,6 +150,93 @@ class UserGroup(Base):
                    self.user_id, self.group_id, self.user_group_nickname, self.created_at, self.updated_at)
 
 
+# 订阅表
+class Subscription(Base):
+    __tablename__ = 'subscription'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('subscription_id_seq'), primary_key=True, nullable=False)
+    # 订阅类型, 0暂留, 1直播间, 2动态, 8Pixivsion
+    sub_type = Column(Integer, nullable=False, comment='订阅类型，0暂留，1直播间，2动态')
+    sub_id = Column(Integer, nullable=False, comment='订阅id，直播为直播间房间号，动态为用户uid')
+    up_name = Column(String(64), nullable=False, comment='up名称')
+    live_info = Column(String(64), nullable=True, comment='相关信息，暂空备用')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    be_sub = relationship('GroupSub', back_populates='sub_by')
+
+    def __init__(self, sub_type, sub_id, up_name, live_info=None, created_at=None, updated_at=None):
+        self.sub_type = sub_type
+        self.sub_id = sub_id
+        self.up_name = up_name
+        self.live_info = live_info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<Subscription(sub_type='%s', sub_id='%s', up_name='%s', " \
+               "live_info='%s', created_at='%s', created_at='%s')>" % (
+                   self.sub_type, self.sub_id, self.up_name, self.live_info, self.created_at, self.updated_at)
+
+
+# qq群订阅表
+class GroupSub(Base):
+    __tablename__ = 'groups_subs'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('groups_subs_id_seq'), primary_key=True, nullable=False)
+    sub_id = Column(Integer, ForeignKey('subscription.id'), nullable=False)
+    group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
+    group_sub_info = Column(String(64), nullable=True, comment='群订阅信息，暂空备用')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    groups_sub = relationship('Group', back_populates='sub_what')
+    sub_by = relationship('Subscription', back_populates='be_sub')
+
+    def __init__(self, sub_id, group_id, group_sub_info=None, created_at=None, updated_at=None):
+        self.sub_id = sub_id
+        self.group_id = group_id
+        self.group_sub_info = group_sub_info
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<GroupSub(sub_id='%s', group_id='%s', " \
+               "group_sub_info='%s', created_at='%s', created_at='%s')>" % (
+                   self.sub_id, self.group_id, self.group_sub_info, self.created_at, self.updated_at)
+
+
+# B站动态表
+class Bilidynamic(Base):
+    __tablename__ = 'bili_dynamics'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('bili_dynamics_id_seq'), primary_key=True, nullable=False)
+    uid = Column(Integer, nullable=False, comment='up的uid')
+    dynamic_id = Column(BigInteger, nullable=False, comment='动态的id')
+    dynamic_type = Column(Integer, nullable=False, comment='动态的类型')
+    content = Column(String(4096), nullable=False, comment='动态内容')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    def __init__(self, uid, dynamic_id, dynamic_type, content, created_at=None, updated_at=None):
+        self.uid = uid
+        self.dynamic_id = dynamic_id
+        self.dynamic_type = dynamic_type
+        self.content = content
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<Bilidynamic(uid='%s',dynamic_id='%s',dynamic_type='%s'," \
+               "content='%s', created_at='%s', created_at='%s')>" % (
+                   self.uid, self.dynamic_id, self.dynamic_type,
+                   self.content, self.created_at, self.updated_at)
+
+
 # 假期表
 class Vocation(Base):
     __tablename__ = 'vocations'
@@ -178,32 +265,26 @@ class Vocation(Base):
             self.user_id, self.status, self.stop_at, self.reason, self.created_at, self.updated_at)
 
 
-# 迫害表
-class Persecution(Base):
-    __tablename__ = 'persecutions'
+# Pixiv tag表
+class PixivTag(Base):
+    __tablename__ = 'pixiv_tag'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    id = Column(Integer, Sequence('persecutions_id_seq'), primary_key=True, nullable=False)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    gender = Column(String(64), nullable=False, comment='他/她/TA')
-    status = Column(Integer, nullable=False, comment='0=不准迫害 1=允许迫害')
-    boring = Column(Integer, nullable=False, comment='0=正常迫害 1=防止此人调戏bot')
+    id = Column(Integer, Sequence('pixiv_tag_id_seq'), primary_key=True, nullable=False)
+    tagname = Column(String(256), nullable=False, comment='tag名称')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    user_persecutions_status = relationship('User', back_populates='can_persecuted')
+    has_illusts = relationship('PixivT2I', back_populates='tag_has_illusts')
 
-    def __init__(self, user_id, gender, status, boring, created_at=None, updated_at=None):
-        self.user_id = user_id
-        self.gender = gender
-        self.status = status
-        self.boring = boring
+    def __init__(self, tagname, created_at=None, updated_at=None):
+        self.tagname = tagname
         self.created_at = created_at
         self.updated_at = updated_at
 
     def __repr__(self):
-        return "<Persecution(user_id='%s', gender='%s',status='%s',boring='%s', created_at='%s', created_at='%s')>" % (
-            self.user_id, self.gender, self.status, self.boring, self.created_at, self.updated_at)
+        return "<PixivTag(tagname='%s', created_at='%s', created_at='%s')>" % (
+            self.tagname, self.created_at, self.updated_at)
 
 
 # Pixiv作品表
@@ -215,25 +296,149 @@ class Pixiv(Base):
     id = Column(Integer, Sequence('upixiv_illusts_id_seq'), primary_key=True, nullable=False)
     pid = Column(Integer, nullable=False, comment='pid')
     uid = Column(Integer, nullable=False, comment='uid')
-    title = Column(String(256), nullable=False, comment='title')
-    author = Column(String(256), nullable=False, comment='author')
-    tags = Column(String(1024), nullable=False, comment='tags')
-    url = Column(String(1024), nullable=False, comment='url')
+    title = Column(String(512), nullable=False, comment='title')
+    uname = Column(String(256), nullable=False, comment='author')
+    tags = Column(String(2048), nullable=False, comment='tags')
+    url = Column(String(2048), nullable=False, comment='url')
     created_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, nullable=True)
 
-    def __init__(self, pid, uid, title, author, tags, url, created_at=None, updated_at=None):
+    has_tags = relationship('PixivT2I', back_populates='illust_tags')
+
+    def __init__(self, pid, uid, title, uname, tags, url, created_at=None, updated_at=None):
         self.pid = pid
         self.uid = uid
         self.title = title
-        self.author = author
+        self.uname = uname
         self.tags = tags
         self.url = url
         self.created_at = created_at
         self.updated_at = updated_at
 
     def __repr__(self):
-        return "<Pixiv(pid='%s',uid='%s',title='%s',author='%s'," \
+        return "<Pixiv(pid='%s',uid='%s',title='%s',uname='%s'," \
                "tags='%s', url='%s', created_at='%s', created_at='%s')>" % (
-                   self.pid, self.uid, self.title, self.author,
+                   self.pid, self.uid, self.title, self.uname,
                    self.tags, self.url, self.created_at, self.updated_at)
+
+
+# Pixiv作品-tag表
+class PixivT2I(Base):
+    __tablename__ = 'pixiv_tag_to_illusts'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('pixiv_tag_to_illusts_id_seq'), primary_key=True, nullable=False)
+    illust_id = Column(Integer, ForeignKey('pixiv_illusts.id'), nullable=False)
+    tag_id = Column(Integer, ForeignKey('pixiv_tag.id'), nullable=False)
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    illust_tags = relationship('Pixiv', back_populates='has_tags')
+    tag_has_illusts = relationship('PixivTag', back_populates='has_illusts')
+
+    def __init__(self, illust_id, tag_id, created_at=None, updated_at=None):
+        self.illust_id = illust_id
+        self.tag_id = tag_id
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<PixivT2I(illust_id='%s', tag_id='%s', created_at='%s', created_at='%s')>" % (
+                   self.illust_id, self.tag_id, self.created_at, self.updated_at)
+
+
+# Pixivsion表
+class Pixivsion(Base):
+    __tablename__ = 'pixivsion_article'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('pixivsion_article_id_seq'), primary_key=True, nullable=False)
+    aid = Column(Integer, nullable=False, comment='aid')
+    title = Column(String(256), nullable=False, comment='title')
+    description = Column(String(1024), nullable=False, comment='description')
+    tags = Column(String(1024), nullable=False, comment='tags')
+    illust_id = Column(String(1024), nullable=False, comment='tags')
+    url = Column(String(1024), nullable=False, comment='url')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    def __init__(self, aid, title, description, tags, illust_id, url, created_at=None, updated_at=None):
+        self.aid = aid
+        self.title = title
+        self.description = description
+        self.tags = tags
+        self.illust_id = illust_id
+        self.url = url
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<Pixiv(aid='%s',title='%s',description='%s'," \
+               "tags='%s', illust_id='%s', url='%s', created_at='%s', created_at='%s')>" % (
+                   self.aid, self.title, self.description,
+                   self.tags, self.illust_id, self.url, self.created_at, self.updated_at)
+
+
+# 直播记录表
+class Livemoment(Base):
+    __tablename__ = 'live_moment'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('live_moment_id_seq'), primary_key=True, nullable=False)
+    rid = Column(Integer, nullable=False, comment='直播房间号')
+    live_title = Column(String(1024), nullable=False, comment='直播间标题')
+    live_start_time = Column(DateTime, nullable=True, comment='直播开始时间')
+    note_real_time = Column(DateTime, nullable=False, comment='记录时间')
+    note_time = Column(String(128), nullable=True, comment='记录时已经直播了的时间')
+    description = Column(String(2048), nullable=False, comment='记录描述')
+    record_by = Column(Integer, nullable=True, comment='记录人qq号')
+    record_group = Column(Integer, nullable=True, comment='记录时所在群号')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    def __init__(self, rid, live_title, live_start_time, note_real_time, note_time,
+                 description, record_by, record_group, created_at=None, updated_at=None):
+        self.rid = rid
+        self.live_title = live_title
+        self.live_start_time = live_start_time
+        self.note_real_time = note_real_time
+        self.note_time = note_time
+        self.description = description
+        self.record_by = record_by
+        self.record_group = record_group
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<Livemoment(rid='%s',live_title='%s',live_start_time='%s',note_real_time='%s'," \
+               "note_time='%s', description='%s', record_by='%s', record_group='%s', " \
+               "created_at='%s', updated_at='%s')>" % (
+                   self.rid, self.live_title, self.live_start_time, self.note_real_time,
+                   self.note_time, self.description, self.record_by, self.record_group,
+                   self.created_at, self.updated_at)
+
+
+# 直播记录绑定表
+class Livemomentinfo(Base):
+    __tablename__ = 'live_moment_info'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    id = Column(Integer, Sequence('live_moment_info_id_seq'), primary_key=True, nullable=False)
+    room_id = Column(Integer, nullable=False, comment='直播房间号')
+    name = Column(String(256), nullable=False, comment='直播间up名称')
+    nickname = Column(String(256), nullable=False, comment='用于记录时的别名/昵称')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    def __init__(self, room_id, name, nickname, created_at=None, updated_at=None):
+        self.room_id = room_id
+        self.name = name
+        self.nickname = nickname
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<Livemomentinfo(room_id='%s', name='%s',nickname='%s', created_at='%s', updated_at='%s')>" % (
+            self.room_id, self.name, self.nickname, self.created_at, self.updated_at)

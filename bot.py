@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import nonebot
 from datetime import datetime
@@ -8,18 +9,6 @@ import config
 if __name__ == '__main__':
     # 从config中加载配置
     nonebot.init(config_object=config)
-
-    # 从插件文件夹中加载插件
-    nonebot.load_plugins(
-        os.path.join(os.path.dirname(__file__), 'omega_miya', 'plugins'),
-        'omega_miya.plugins'
-    )
-
-    # 加载数据库模块
-    nonebot.load_plugins(
-        os.path.join(os.path.dirname(__file__), 'omega_miya', 'database'),
-        'omega_miya.database'
-    )
 
     # 设置文件输出的日志
     log_file_name = datetime.today().strftime('%Y-%m-%d %H-%M-%S') + '.log'
@@ -45,6 +34,26 @@ if __name__ == '__main__':
     logger.addHandler(f_handler)
     # 设置输出级别
     logger.setLevel(logging.INFO)
+
+    # 加载数据库模块
+    try:
+        nonebot.load_plugins(
+            os.path.join(os.path.dirname(__file__), 'omega_miya', 'database'),
+            'omega_miya.database'
+        )
+    except Exception as e:
+        nonebot.log.logger.error(f'NONEBOT Init Database ERROR: {e}')
+        sys.exit(f'Init Database ERROR: {e}')
+
+    # 从插件文件夹中加载插件
+    try:
+        nonebot.load_plugins(
+            os.path.join(os.path.dirname(__file__), 'omega_miya', 'plugins'),
+            'omega_miya.plugins'
+        )
+    except Exception as e:
+        nonebot.log.logger.error(f'NONEBOT Init Plugins ERROR: {e}')
+        sys.exit(f'Init Plugins ERROR: {e}')
 
     # 运行bot
     nonebot.run()

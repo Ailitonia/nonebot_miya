@@ -9,7 +9,7 @@ from .group_manage import query_group_list
 
 
 # 查询群组是否具有通知权限
-def has_noitce_permissions(group_id) -> bool:
+def has_notice_permissions(group_id) -> bool:
     exist_group_id = query_group_list()
     if group_id not in exist_group_id:
         return False
@@ -45,7 +45,7 @@ def has_admin_permissions(group_id) -> bool:
 
 
 # 查询所有有通知权限的群组
-def query_all_noitce_groups() -> list:
+def query_all_notice_groups() -> list:
     __res = []
     for res in NONEBOT_DBSESSION.query(Group.group_id).\
             filter(Group.noitce_permissions == 1).order_by(Group.id).all():
