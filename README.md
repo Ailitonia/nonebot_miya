@@ -29,43 +29,22 @@
             │      get_live_info.py
             │      __init__.py
             │
-            ├─dd_almanac    //dd老黄历插件
-            │      almanac_text.py
-            │      get_almanac_for_dd.py
-            │      __init__.py
-            │
-            ├─Group_manage    //群组自动管理插件
+            ├─Announce    //通知插件
             │      __init__.py
             │
             ├─help    //帮助模组
             │      __init__.py
             │
-            ├─maybe    //求签插件
-            │      get_divination_of_thing.py
+            ├─Auto_manage    //事务自动处理管理插件
             │      __init__.py
             │
-            ├─members_skill    //技能插件
-            │      add_skill.py
-            │      query_skill.py
+            ├─repeater    //复读机
             │      __init__.py
             │
-            ├─member_mamage    //群成员管理插件
-            │      member_mamage.py
+            ├─Group_manage    //群组及群成员管理插件
+            │      group_manage.py
+            │      group_permissions.py
             │      __init__.py
             │
-            ├─pixiv    //pixiv插件
-            │  │  config.py
-            │  │  __init__.py
-            │  │
-            │  └─src
-            │      │  dl_illust.py    //图片下载
-            │      │  illust_info.py    //作品信息
-            │      │  pic_2_base64.py
-            │      │  weekly_daily_ranking.py    //周榜功能
-            │      │  __init__.py
-            │      │
-            │      └─illust_pic    //图片存放文件夹
-            │
-            └─weather    //天气插件
-                    get_weather.py
+            └─Roll    //Roll
                     __init__.py
