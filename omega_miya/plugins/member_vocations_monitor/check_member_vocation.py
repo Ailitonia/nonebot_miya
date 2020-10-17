@@ -25,8 +25,17 @@ async def check_member_vocation(user_qq) -> bool:
         else:
             return False
     except NoResultFound:
-        log.logger.warning(f'{__name__}: check_member_vocation ERROR: NoResultFound, user_qq: {user_qq}.')
-        return False
+        # 不存在则假期表中添加新成员
+        try:
+            __new_user = Vocation(user_id=__user_table_id, status=0, created_at=datetime.now())
+            NONEBOT_DBSESSION.add(__new_user)
+            NONEBOT_DBSESSION.commit()
+            log.logger.info(f'{__name__}: check_member_vocation: 为用户: {user_qq} 新增了默认请假状态: 空闲.')
+            return False
+        except Exception as e:
+            NONEBOT_DBSESSION.rollback()
+            log.logger.error(f'{__name__}: check_member_vocation, DBSESSION ERROR, error info: {e}.')
+            return False
     except MultipleResultsFound:
         log.logger.warning(f'{__name__}: check_member_vocation ERROR: MultipleResultsFound, user_qq: {user_qq}.')
         return False
@@ -43,10 +52,10 @@ async def clear_member_vocation(user_qq) -> bool:
     try:
         __user_table_id = NONEBOT_DBSESSION.query(User.id).filter(User.qq == user_qq).one()[0]
     except NoResultFound:
-        log.logger.warning(f'{__name__}: check_member_vocation ERROR: User NoResultFound.')
+        log.logger.warning(f'{__name__}: clear_member_vocation ERROR: User NoResultFound.')
         return False
     except Exception as e:
-        log.logger.warning(f'{__name__}: check_member_vocation ERROR: {e}, in checking user.')
+        log.logger.warning(f'{__name__}: clear_member_vocation ERROR: {e}, in checking user.')
         return False
 
     # 检查用户在假期表中是否存在
@@ -71,7 +80,7 @@ async def clear_member_vocation(user_qq) -> bool:
             log.logger.error(f'{__name__}: check_member_vocation, DBSESSION ERROR, error info: {e}.')
             return False
     except MultipleResultsFound:
-        log.logger.error(f'{__name__}: check_member_vocation ERROR: MultipleResultsFound, user_qq: {user_qq}.')
+        log.logger.error(f'{__name__}: clear_member_vocation ERROR: MultipleResultsFound, user_qq: {user_qq}.')
         return False
     except Exception as e:
         NONEBOT_DBSESSION.rollback()
