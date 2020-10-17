@@ -27,7 +27,7 @@ async def clear_dy_sub(session: CommandSession):
     group_id = session.event.group_id
     session_type = session.event.detail_type
     if session_type == 'group':
-        if group_id not in query_all_command_groups():
+        if not has_command_permissions(group_id):
             await session.send('本群组没有执行命令的权限呢QAQ')
             log.logger.info(f'{__name__}: 群组: {group_id} 没有命令权限, 已中止命令执行')
             return
@@ -59,7 +59,7 @@ async def new_dy_sub(session: CommandSession):
     group_id = session.event.group_id
     session_type = session.event.detail_type
     if session_type == 'group':
-        if group_id not in query_all_command_groups():
+        if not has_command_permissions(group_id):
             await session.send('本群组没有执行命令的权限呢QAQ')
             log.logger.info(f'{__name__}: 群组: {group_id} 没有命令权限, 已中止命令执行')
             return
@@ -127,7 +127,7 @@ async def new_dy_sub(session: CommandSession):
                 log.logger.info(f'{__name__}: 群组: {group_id}, 用户: {session.event.user_id} '
                                 f'已成功添加: {__up_name} 的动态订阅')
             except Exception as e:
-                await session.send('发生了未知的错误QAQ')
+                await session.send('订阅成功，但在更新动态时发生了未知的错误QAQ')
                 log.logger.error(f'{__name__}: 群组: {group_id}, 用户: {session.event.user_id} '
                                  f'试图添加: {__sub_id} 动态订阅时发生了错误, error info: {e}.')
 
@@ -137,7 +137,7 @@ async def _(session: CommandSession):
     group_id = session.event.group_id
     session_type = session.event.detail_type
     if session_type == 'group':
-        if group_id not in query_all_command_groups():
+        if not has_command_permissions(group_id):
             return
     elif session_type == 'private':
         return
@@ -166,7 +166,7 @@ async def query_group_sub(session: CommandSession):
     group_id = session.event.group_id
     session_type = session.event.detail_type
     if session_type == 'group':
-        if group_id not in query_all_command_groups():
+        if not has_command_permissions(group_id):
             await session.send('本群组没有执行命令的权限呢QAQ')
             log.logger.info(f'{__name__}: 群组: {group_id} 没有命令权限, 已中止命令执行')
             return

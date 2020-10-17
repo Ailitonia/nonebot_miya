@@ -19,6 +19,7 @@ async def group_increase_request(session: RequestSession):
     # 验证信息错误, 拒绝入群
     await session.reject('验证消息不对哦QAQ')
     log.logger.info(f'{__name__}: 群组: {session.event.group_id}, 已拒绝用户: {session.event.user_id} 的加群申请')
+    return
 
 
 # 加好友申请
@@ -34,12 +35,14 @@ async def new_friend(session: RequestSession):
     # 验证信息错误, 拒绝
     await session.reject('验证消息不对哦QAQ')
     log.logger.info(f'{__name__}: 已拒绝用户: {session.event.user_id} 的加好友申请')
+    return
 
 
 # 新增群成员
 @on_notice('group_increase')
 async def new_increase(session: NoticeSession):
     group_id = session.event.group_id
+    group_id = int(group_id)
     if group_id in BLOCK_GROUP:
         return
     if not has_notice_permissions(group_id=group_id):
@@ -47,6 +50,7 @@ async def new_increase(session: NoticeSession):
     # 发送欢迎消息
     await session.send('欢迎新朋友～\n进群请先看群公告~\n想知道我的用法请发送/help')
     log.logger.info(f'{__name__}: 群组: {session.event.group_id}, 有新用户进群')
+    return
 
 bot = get_bot()
 
@@ -66,22 +70,3 @@ async def auto_ban(event: Event):
             await bot.send_group_msg(group_id=group_id, message='满足你的要求OvO')
             await bot.set_group_ban(group_id=group_id, user_id=user_id, duration=1 * 60)
             log.logger.info(f'{__name__}: 群组: {group_id}, 触发关键词封禁, 已将用户: {user_id} 禁言1分钟')
-
-
-'''
-# 踢人的就算了
-@bot.on_message('group')
-async def auto_kick(event: Event):
-    group_id = event.group_id
-    user_id = event.user_id
-    if event.group_id not in ALLOW_GROUP:
-        return
-    msg = str(event.message)
-    if msg == '面对我, bot！':
-        user_info = await bot.get_group_member_info(group_id=group_id, user_id=user_id)
-        if user_info['role'] in ['owner', 'admin']:
-            await bot.send_group_msg(group_id=group_id, message='狗管理别闹OvO')
-        else:
-            await bot.send_group_msg(group_id=group_id, message='你这人好奇怪啊OvO,踢了')
-            await bot.set_group_kick(group_id=group_id, user_id=user_id)
-'''

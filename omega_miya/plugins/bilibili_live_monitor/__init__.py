@@ -1,5 +1,6 @@
 import nonebot
 import asyncio
+import re
 from nonebot.command.argfilter import validators, controllers
 from omega_miya.plugins.bilibili_live_monitor.get_live_info import *
 from nonebot import on_command, CommandSession, permission, log
@@ -58,7 +59,7 @@ async def clear_live_sub(session: CommandSession):
     group_id = session.event.group_id
     session_type = session.event.detail_type
     if session_type == 'group':
-        if group_id not in query_all_command_groups():
+        if not has_command_permissions(group_id):
             await session.send('本群组没有执行命令的权限呢QAQ')
             log.logger.info(f'{__name__}: 群组: {group_id} 没有命令权限, 已中止命令执行')
             return
@@ -89,7 +90,7 @@ async def new_live_sub(session: CommandSession):
     group_id = session.event.group_id
     session_type = session.event.detail_type
     if session_type == 'group':
-        if group_id not in query_all_command_groups():
+        if not has_command_permissions(group_id):
             await session.send('本群组没有执行命令的权限呢QAQ')
             log.logger.info(f'{__name__}: 群组: {group_id} 没有命令权限, 已中止命令执行')
             return
@@ -163,7 +164,7 @@ async def _(session: CommandSession):
     group_id = session.event.group_id
     session_type = session.event.detail_type
     if session_type == 'group':
-        if group_id not in query_all_command_groups():
+        if not has_command_permissions(group_id):
             return
     elif session_type == 'private':
         return
@@ -192,7 +193,7 @@ async def query_group_sub(session: CommandSession):
     group_id = session.event.group_id
     session_type = session.event.detail_type
     if session_type == 'group':
-        if group_id not in query_all_command_groups():
+        if not has_command_permissions(group_id):
             await session.send('本群组没有执行命令的权限呢QAQ')
             log.logger.info(f'{__name__}: 群组: {group_id} 没有命令权限, 已中止命令执行')
             return
@@ -358,7 +359,7 @@ async def check_live_status(session: CommandSession):
     group_id = session.event.group_id
     session_type = session.event.detail_type
     if session_type == 'group':
-        if group_id not in query_all_command_groups():
+        if not has_command_permissions(group_id):
             await session.send('本群组没有执行命令的权限呢QAQ')
             log.logger.info(f'{__name__}: 群组: {group_id} 没有命令权限, 已中止命令执行')
             return

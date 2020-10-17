@@ -14,7 +14,7 @@ async def _(session: CommandSession):
     group_id = session.event.group_id
     session_type = session.event.detail_type
     if session_type == 'group':
-        if group_id not in query_all_command_groups():
+        if not has_command_permissions(group_id):
             await session.send('本群组没有执行命令的权限呢QAQ')
             log.logger.info(f'{__name__}: 群组: {group_id} 没有命令权限, 已中止命令执行')
             return

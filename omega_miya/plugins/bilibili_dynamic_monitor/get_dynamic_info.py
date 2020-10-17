@@ -1,10 +1,10 @@
 import aiohttp
 import json
-# import re
 from nonebot import log
 from datetime import datetime
 from omega_miya.plugins.bilibili_dynamic_monitor.config import *
 from omega_miya.database import *
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 
 async def fetch(url: str, paras: dict) -> dict:
@@ -31,14 +31,17 @@ async def fetch(url: str, paras: dict) -> dict:
 
 # 查询这个up的动态是否在订阅表中
 def is_dy_sub_exist(user_id) -> bool:
-    __result = NONEBOT_DBSESSION.query(Subscription.sub_id). \
-        filter(Subscription.sub_type == 2). \
-        filter(Subscription.sub_id == user_id). \
-        first()
-    if __result:
+    try:
+        NONEBOT_DBSESSION.query(Subscription.sub_id).\
+            filter(Subscription.sub_type == 2).\
+            filter(Subscription.sub_id == user_id).one()
         return True
-    else:
+    except NoResultFound:
+        log.logger.warning(f'{__name__}: is_dy_sub_exist ERROR: NoResultFound.')
         return False
+    except MultipleResultsFound:
+        log.logger.warning(f'{__name__}: is_dy_sub_exist ERROR: MultipleResultsFound, user_id: {user_id}.')
+        return True
 
 
 # 返回所有的动态的UP的uid的列表
@@ -55,28 +58,18 @@ def query_dy_sub_list() -> list:
 # 非重复向订阅表中添加(更新)动态订阅
 async def add_dy_sub_to_db(sub_id, up_name) -> bool:
     sub_id = int(sub_id)
-    # up_name = re.sub(r'\W+', '', up_name)
     up_name = str(up_name)
-    exist_dy_sub = query_dy_sub_list()
-    if sub_id in exist_dy_sub:
-        # up名称有变动则更新订阅表中up名称
-        if not up_name == NONEBOT_DBSESSION.query(Subscription.up_name). \
-                filter(Subscription.sub_type == 2). \
-                filter(Subscription.sub_id == sub_id).first()[0]:
-            try:
-                __exist_sub = NONEBOT_DBSESSION.query(Subscription).filter(Subscription.sub_id == sub_id).first()
-                __exist_sub.up_name = up_name
-                __exist_sub.updated_at = datetime.now()
-                NONEBOT_DBSESSION.commit()
-                return True
-            except Exception as e:
-                NONEBOT_DBSESSION.rollback()
-                log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
-                return False
-        else:
-            return True
-    else:
-        # 订阅表中添加新订阅
+    # 若存在则更新订阅表中up名称
+    try:
+        __exist_sub = NONEBOT_DBSESSION.query(Subscription). \
+            filter(Subscription.sub_type == 2). \
+            filter(Subscription.sub_id == sub_id).one()
+        __exist_sub.up_name = up_name
+        __exist_sub.updated_at = datetime.now()
+        NONEBOT_DBSESSION.commit()
+        return True
+    except NoResultFound:
+        # 不存在则添加新订阅
         try:
             __new_sub = Subscription(sub_id=sub_id, sub_type=2, up_name=up_name, created_at=datetime.now())
             NONEBOT_DBSESSION.add(__new_sub)
@@ -84,50 +77,56 @@ async def add_dy_sub_to_db(sub_id, up_name) -> bool:
             return True
         except Exception as e:
             NONEBOT_DBSESSION.rollback()
-            log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+            log.logger.error(f'{__name__}: add_dy_sub_to_db, DBSESSION ERROR, error info: {e}.')
             return False
+    except MultipleResultsFound:
+        log.logger.warning(f'{__name__}: add_dy_sub_to_db ERROR: MultipleResultsFound, sub_id: {sub_id}.')
+        return False
+    except Exception as e:
+        NONEBOT_DBSESSION.rollback()
+        log.logger.error(f'{__name__}: add_dy_sub_to_db, DBSESSION ERROR, error info: {e}.')
+        return False
 
 
 # 非重复为群组添加(更新)动态订阅
 async def add_group_dy_sub_to_db(sub_id, group_id) -> bool:
     sub_id = int(sub_id)
-    # 不在订阅表中的房间号群跳过
-    if not is_dy_sub_exist(sub_id):
+
+    # 检查订阅是否在表中，查这个订阅在订阅表中的id(不是用户uid)
+    try:
+        __sub_table_id = NONEBOT_DBSESSION.query(Subscription.id).\
+            filter(Subscription.sub_type == 2).\
+            filter(Subscription.sub_id == sub_id).one()[0]
+    except NoResultFound:
+        log.logger.warning(f'{__name__}: add_group_dy_sub_to_db ERROR: Group NoResultFound.')
         return False
-    __exist_group_id = []
-    for res in NONEBOT_DBSESSION.query(Group.group_id).order_by(Group.id).all():
-        __exist_group_id.append(res[0])
-    # 不在群组表中的qq群跳过
-    if group_id not in __exist_group_id:
+    except Exception as e:
+        log.logger.warning(f'{__name__}: add_group_dy_sub_to_db ERROR: {e}, in checking sub')
         return False
-    # 查这个订阅在订阅表中的id（不是房间号）
-    __sub_table_id = NONEBOT_DBSESSION.query(Subscription.id).filter(Subscription.sub_id == sub_id).first()[0]
-    # 查这个群组在群组表中的id（不是群号）
-    __group_table_id = NONEBOT_DBSESSION.query(Group.id).filter(Group.group_id == group_id).first()[0]
-    # 查询订阅-群组表中所有订阅的房间号, 这个人订阅-群关系已存在
-    __result = []
-    for __res in NONEBOT_DBSESSION.query(Subscription.sub_id). \
-            join(GroupSub).join(Group). \
-            filter(Subscription.id == GroupSub.sub_id). \
-            filter(GroupSub.group_id == Group.id). \
-            filter(Group.group_id == group_id). \
-            order_by(Subscription.id).all():
-        __result.append(__res[0])
-    # 群组-成员表里面这个订阅-群关系已存在, 更新信息
-    if sub_id in __result:
-        try:
-            __exist_sub = NONEBOT_DBSESSION.query(GroupSub).filter(GroupSub.sub_id == __sub_table_id).first()
-            # __exist_sub.group_sub_info 更新订阅信息（暂留）
-            __exist_sub.updated_at = datetime.now()
-            NONEBOT_DBSESSION.commit()
-            return True
-        except Exception as e:
-            NONEBOT_DBSESSION.rollback()
-            log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
-            return False
-    # 群组-成员表里面这个订阅-群关系不存在, 更新订阅-群组关联
-    else:
-        # 添加新订阅
+
+    # 检查qq群是否在表中，查这个群组在群组表中的id(不是群号)
+    try:
+        __group_table_id = NONEBOT_DBSESSION.query(Group.id).filter(Group.group_id == group_id).one()[0]
+    except NoResultFound:
+        log.logger.warning(f'{__name__}: add_group_dy_sub_to_db ERROR: Group NoResultFound.')
+        return False
+    except Exception as e:
+        log.logger.warning(f'{__name__}: add_group_dy_sub_to_db ERROR: {e}, in checking group')
+        return False
+
+    # 查询订阅-群组表中订阅-群关系
+    try:
+        # 若群组已经订阅则更新信息
+        __exist_sub = NONEBOT_DBSESSION.query(GroupSub). \
+            filter(GroupSub.sub_id == __sub_table_id).\
+            filter(GroupSub.group_id == __group_table_id).one()
+        # 更新订阅信息(暂留)
+        # __exist_sub.group_sub_info
+        __exist_sub.updated_at = datetime.now()
+        NONEBOT_DBSESSION.commit()
+        return True
+    except NoResultFound:
+        # 若群组没有订阅则新增订阅信息
         try:
             __new_sub = GroupSub(sub_id=__sub_table_id, group_id=__group_table_id, created_at=datetime.now())
             NONEBOT_DBSESSION.add(__new_sub)
@@ -135,8 +134,17 @@ async def add_group_dy_sub_to_db(sub_id, group_id) -> bool:
             return True
         except Exception as e:
             NONEBOT_DBSESSION.rollback()
-            log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+            log.logger.error(f'{__name__}: add_group_dy_sub_to_db, DBSESSION ERROR, error info: {e}, '
+                             f'failed to add new sub.')
             return False
+    except MultipleResultsFound:
+        log.logger.error(f'{__name__}: add_group_dy_sub_to_db ERROR: MultipleResultsFound, '
+                         f'sub_id: {sub_id}, group_id: {group_id}.')
+        return False
+    except Exception as e:
+        NONEBOT_DBSESSION.rollback()
+        log.logger.error(f'{__name__}: add_group_dy_sub_to_db, DBSESSION ERROR, error info: {e}.')
+        return False
 
 
 # 查询某群组订阅的所有动态的UP的uid
@@ -171,22 +179,29 @@ async def query_group_whick_sub_dy(sub_id) -> list:
 
 # 清空某群组的动态订阅
 async def clean_group_dy_sub_in_db(group_id) -> bool:
-    for __res_sub_id, __res_group_id in NONEBOT_DBSESSION.query(Subscription.sub_id, GroupSub.id). \
-            join(GroupSub).join(Group). \
-            filter(Subscription.id == GroupSub.sub_id). \
-            filter(GroupSub.group_id == Group.id). \
-            filter(Subscription.sub_type == 2). \
-            filter(Group.group_id == group_id). \
-            order_by(Subscription.id). \
-            all():
+    for __res_groupsub_id in NONEBOT_DBSESSION.query(GroupSub.id).join(Subscription).join(Group).\
+            filter(GroupSub.sub_id == Subscription.id).\
+            filter(GroupSub.group_id == Group.id).\
+            filter(Subscription.sub_type == 2).\
+            filter(Group.group_id == group_id).\
+            order_by(Subscription.id).all():
         try:
-            __group_sub = NONEBOT_DBSESSION.query(GroupSub).filter(GroupSub.id == __res_group_id).first()
+            __group_sub = NONEBOT_DBSESSION.query(GroupSub).filter(GroupSub.id == __res_groupsub_id).one()
             NONEBOT_DBSESSION.delete(__group_sub)
             NONEBOT_DBSESSION.commit()
+        except NoResultFound:
+            log.logger.warning(f'{__name__}: clean_group_dy_sub_in_db ERROR: NoResultFound, '
+                               f'groupsub_id: {__res_groupsub_id}.')
+            continue
+        except MultipleResultsFound:
+            log.logger.warning(f'{__name__}: clean_group_dy_sub_in_db ERROR: MultipleResultsFound, '
+                               f'groupsub_id: {__res_groupsub_id}.')
+            continue
         except Exception as e:
             NONEBOT_DBSESSION.rollback()
-            log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
-            return False
+            log.logger.error(f'{__name__}: clean_group_dy_sub_in_db, DBSESSION ERROR, '
+                             f'error info: {e}, groupsub_id: {__res_groupsub_id}.')
+            continue
     return True
 
 
@@ -206,13 +221,12 @@ async def add_dy_info_to_db(user_id, dynamic_id, dynamic_type, content) -> bool:
     user_id = int(user_id)
     dynamic_id = int(dynamic_id)
     dynamic_type = int(dynamic_type)
-    # content = re.sub(r'\W+', '', str(content))
     content = str(content)
-    exist_dy_list = query_up_dy_id_list(user_id=user_id)
-    if dynamic_id in exist_dy_list:
-        # 已存在的动态id
+
+    try:
+        NONEBOT_DBSESSION.query(Bilidynamic).filter(Bilidynamic.dynamic_id == dynamic_id).one()
         return True
-    else:
+    except NoResultFound:
         try:
             # 动态表中添加新动态
             __new_dy = Bilidynamic(uid=user_id, dynamic_id=dynamic_id, dynamic_type=dynamic_type,
@@ -222,8 +236,12 @@ async def add_dy_info_to_db(user_id, dynamic_id, dynamic_type, content) -> bool:
             return True
         except Exception as e:
             NONEBOT_DBSESSION.rollback()
-            log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+            log.logger.error(f'{__name__}: add_dy_info_to_db, DBSESSION ERROR, error info: {e}, '
+                             f'failed to add new dymanic.')
             return False
+    except Exception as e:
+        log.logger.warning(f'{__name__}: add_dy_info_to_db, DBSESSION ERROR, error info: {e}.')
+        return False
 
 
 # 初始化动态列表
@@ -316,7 +334,7 @@ async def get_dynamic_info(dy_uid) -> dict:
             except Exception as e:
                 # 原动态被删除
                 origin = dict({'id': -1, 'type': -1, 'url': '',
-                              'name': 'Unknow', 'content': '原动态被删除', 'origin': ''})
+                               'name': 'Unknow', 'content': '原动态被删除', 'origin': ''})
                 log.logger.debug(f'{__name__}: '
                                  f'get_dynamic_info - type-1 origin ERROR: 原动态被删除: {dy_id}, error: {e}')
             card_dic = dict({'id': dy_id, 'type': 1, 'url': url,

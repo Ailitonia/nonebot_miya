@@ -1,5 +1,5 @@
 from omega_miya.database import *
-from .group_manage import query_group_list
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 
 '''
@@ -10,37 +10,43 @@ from .group_manage import query_group_list
 
 # 查询群组是否具有通知权限
 def has_notice_permissions(group_id) -> bool:
-    exist_group_id = query_group_list()
-    if group_id not in exist_group_id:
+    try:
+        __res = NONEBOT_DBSESSION.query(Group.noitce_permissions).filter(Group.group_id == group_id).one()
+        if __res and __res[0] == 1:
+            return True
+        else:
+            return False
+    except NoResultFound:
         return False
-    __res = NONEBOT_DBSESSION.query(Group.noitce_permissions).filter(Group.group_id == group_id).first()
-    if __res and __res[0] == 1:
-        return True
-    else:
+    except MultipleResultsFound:
         return False
 
 
 # 查询群组是否具有命令权限
 def has_command_permissions(group_id) -> bool:
-    exist_group_id = query_group_list()
-    if group_id not in exist_group_id:
+    try:
+        __res = NONEBOT_DBSESSION.query(Group.command_permissions).filter(Group.group_id == group_id).one()
+        if __res and __res[0] == 1:
+            return True
+        else:
+            return False
+    except NoResultFound:
         return False
-    __res = NONEBOT_DBSESSION.query(Group.command_permissions).filter(Group.group_id == group_id).first()
-    if __res and __res[0] == 1:
-        return True
-    else:
+    except MultipleResultsFound:
         return False
 
 
 # 查询群组是否具有管理命令权限
 def has_admin_permissions(group_id) -> bool:
-    exist_group_id = query_group_list()
-    if group_id not in exist_group_id:
+    try:
+        __res = NONEBOT_DBSESSION.query(Group.admin_permissions).filter(Group.group_id == group_id).one()
+        if __res and __res[0] == 1:
+            return True
+        else:
+            return False
+    except NoResultFound:
         return False
-    __res = NONEBOT_DBSESSION.query(Group.admin_permissions).filter(Group.group_id == group_id).first()
-    if __res and __res[0] == 1:
-        return True
-    else:
+    except MultipleResultsFound:
         return False
 
 

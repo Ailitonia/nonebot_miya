@@ -29,7 +29,7 @@ async def repeater(event: Event):
     except KeyError:
         last_repeat_msg[group_id] = ''
 
-    if group_id not in query_all_command_groups():
+    if not has_notice_permissions(group_id):
         return
     msg = str(event.message)
     msg = fr'{msg}'
