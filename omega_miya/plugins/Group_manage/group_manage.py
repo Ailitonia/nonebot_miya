@@ -12,6 +12,26 @@ def query_member_list() -> list:
     return __result
 
 
+# 查询数据库中群组成员qq号
+def query_group_member_list(group_id) -> list:
+    # 检查群组是否在表中，查这个群组在群组表中的id(不是群号)
+    try:
+        __group_table_id = NONEBOT_DBSESSION.query(Group.id).filter(Group.group_id == group_id).one()[0]
+    except NoResultFound:
+        log.logger.warning(f'{__name__}: query_group_member_list ERROR: Group NoResultFound.')
+        return []
+    except Exception as e:
+        log.logger.warning(f'{__name__}: query_group_member_list ERROR: {e}, in checking group.')
+        return []
+
+    __result = []
+    for res in NONEBOT_DBSESSION.query(User.qq).join(UserGroup).\
+            filter(User.id == UserGroup.user_id).\
+            filter(UserGroup.group_id == __group_table_id).all():
+        __result.append(int(res[0]))
+    return __result
+
+
 # 查询所有已存在qq群的群号
 def query_group_list() -> list:
     __result = []
@@ -138,7 +158,54 @@ async def add_member_group_to_db(user_qq, group_id, user_group_nickmane) -> bool
         return False
     except Exception as e:
         NONEBOT_DBSESSION.rollback()
-        log.logger.error(f'{__name__}: DBSESSION ERROR, error info: {e}.')
+        log.logger.error(f'{__name__}: add_member_group_to_db, DBSESSION ERROR, error info: {e}.')
+        return False
+
+
+# 删除数据库中用户_所属群组信息
+async def del_member_group_to_db(user_qq, group_id) -> bool:
+    user_qq = int(user_qq)
+    group_id = int(group_id)
+
+    # 检查用户是否在表中，查这个用户在用户表中的id(不是qq号)
+    try:
+        __user_table_id = NONEBOT_DBSESSION.query(User.id).filter(User.qq == user_qq).one()[0]
+    except NoResultFound:
+        log.logger.warning(f'{__name__}: del_member_group_to_db ERROR: User NoResultFound.')
+        return False
+    except Exception as e:
+        log.logger.warning(f'{__name__}: del_member_group_to_db ERROR: {e}, in checking user.')
+        return False
+
+    # 检查群组是否在表中，查这个群组在群组表中的id(不是群号)
+    try:
+        __group_table_id = NONEBOT_DBSESSION.query(Group.id).filter(Group.group_id == group_id).one()[0]
+    except NoResultFound:
+        log.logger.warning(f'{__name__}: del_member_group_to_db ERROR: Group NoResultFound.')
+        return False
+    except Exception as e:
+        log.logger.warning(f'{__name__}: del_member_group_to_db ERROR: {e}, in checking group.')
+        return False
+
+    # 查询成员-群组表中用户-群关系
+    try:
+        # 用户-群关系已存在, 删除
+        __exist_user = NONEBOT_DBSESSION.query(UserGroup). \
+            filter(UserGroup.user_id == __user_table_id). \
+            filter(UserGroup.group_id == __group_table_id).one()
+        NONEBOT_DBSESSION.delete(__exist_user)
+        NONEBOT_DBSESSION.commit()
+        return True
+    except NoResultFound:
+        # 不存在
+        return True
+    except MultipleResultsFound:
+        log.logger.error(f'{__name__}: del_member_group_to_db ERROR: MultipleResultsFound, '
+                         f'user_qq: {user_qq}, group_id: {group_id}.')
+        return False
+    except Exception as e:
+        NONEBOT_DBSESSION.rollback()
+        log.logger.error(f'{__name__}: del_member_group_to_db, DBSESSION ERROR, error info: {e}.')
         return False
 
 

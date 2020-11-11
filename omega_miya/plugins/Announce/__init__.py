@@ -11,11 +11,35 @@ async def announce(session: CommandSession):
                                           validators.not_empty('输入不能为空'),
                                           validators.match_regex(r'^\d+$', '格式不对, 请重新输入~', fullmatch=True)])
     __group_id = int(__group_id)
-    if __group_id == 1:
+    if __group_id == 0:
         __announce_text = session.get('announce_text', prompt='【全局公告】请输入你想发布的公告内容: ',
                                       arg_filters=[controllers.handle_cancellation(session),
                                                    validators.not_empty('输入不能为空')])
         for group_id in query_all_notice_groups():
+            try:
+                await session.bot.send_group_msg(group_id=group_id, message=__announce_text)
+                log.logger.info(f'{__name__}: 已向群组: {__group_id} 发送通知')
+            except Exception as e:
+                log.logger.error(f'{__name__}: 向群组: {__group_id} 发送通知失败, error info: {e}')
+                continue
+        return
+    elif __group_id == 1:
+        __announce_text = session.get('announce_text', prompt='【命令组公告】请输入你想发布的公告内容: ',
+                                      arg_filters=[controllers.handle_cancellation(session),
+                                                   validators.not_empty('输入不能为空')])
+        for group_id in query_all_command_groups():
+            try:
+                await session.bot.send_group_msg(group_id=group_id, message=__announce_text)
+                log.logger.info(f'{__name__}: 已向群组: {__group_id} 发送通知')
+            except Exception as e:
+                log.logger.error(f'{__name__}: 向群组: {__group_id} 发送通知失败, error info: {e}')
+                continue
+        return
+    elif __group_id == 9:
+        __announce_text = session.get('announce_text', prompt='【管理组公告】请输入你想发布的公告内容: ',
+                                      arg_filters=[controllers.handle_cancellation(session),
+                                                   validators.not_empty('输入不能为空')])
+        for group_id in query_all_admin_groups():
             try:
                 await session.bot.send_group_msg(group_id=group_id, message=__announce_text)
                 log.logger.info(f'{__name__}: 已向群组: {__group_id} 发送通知')

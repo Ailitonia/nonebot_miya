@@ -14,9 +14,6 @@ repeat_count = {}
 @bot.on_message('group')
 async def repeater(event: Event):
     global last_msg, last_repeat_msg, repeat_count
-    last_msg = last_msg
-    last_repeat_msg = last_repeat_msg
-    repeat_count = repeat_count
 
     group_id = event.group_id
 

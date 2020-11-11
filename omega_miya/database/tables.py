@@ -150,6 +150,48 @@ class UserGroup(Base):
                    self.user_id, self.group_id, self.user_group_nickname, self.created_at, self.updated_at)
 
 
+# 记录表
+class History(Base):
+    __tablename__ = 'history'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    # 表结构
+    id = Column(Integer, Sequence('history_id_seq'), primary_key=True, nullable=False)
+    time = Column(BigInteger, nullable=False, comment='事件发生的时间戳')
+    self_id = Column(BigInteger, nullable=False, comment='收到事件的机器人QQ号')
+    post_type = Column(String(64), nullable=False, comment='事件类型')
+    detail_type = Column(String(64), nullable=False, comment='消息/通知/请求/元事件类型')
+    sub_type = Column(String(64), nullable=True, comment='子事件类型')
+    group_id = Column(BigInteger, nullable=True, comment='群号')
+    user_id = Column(BigInteger, nullable=True, comment='发送者QQ号')
+    user_name = Column(String(64), nullable=True, comment='发送者名称')
+    raw_data = Column(String(1024), nullable=True, comment='原始事件内容')
+    msg_data = Column(String(1024), nullable=True, comment='经处理的事件内容')
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+    def __init__(self, time, self_id, post_type, detail_type, sub_type=None,
+                 group_id=None, user_id=None, user_name=None, raw_data=None, msg_data=None, created_at=None, updated_at=None):
+        self.time = time
+        self.self_id = self_id
+        self.post_type = post_type
+        self.detail_type = detail_type
+        self.sub_type = sub_type
+        self.group_id = group_id
+        self.user_id = user_id
+        self.user_name = user_name
+        self.raw_data = raw_data
+        self.msg_data = msg_data
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def __repr__(self):
+        return "<History(time='%s', self_id='%s', post_type='%s', detail_type='%s', sub_type='%s', group_id='%s', " \
+               "user_id='%s', user_name='%s', raw_data='%s', msg_data='%s', created_at='%s', created_at='%s')>" % (
+                   self.time, self.self_id, self.post_type, self.detail_type, self.sub_type,
+                   self.group_id, self.user_id, self.user_name, self.raw_data, self.msg_data, self.created_at, self.updated_at)
+
+
 # 订阅表
 class Subscription(Base):
     __tablename__ = 'subscription'
@@ -344,7 +386,7 @@ class PixivT2I(Base):
 
     def __repr__(self):
         return "<PixivT2I(illust_id='%s', tag_id='%s', created_at='%s', created_at='%s')>" % (
-                   self.illust_id, self.tag_id, self.created_at, self.updated_at)
+            self.illust_id, self.tag_id, self.created_at, self.updated_at)
 
 
 # Pixivsion表

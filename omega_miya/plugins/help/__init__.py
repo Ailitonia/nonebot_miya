@@ -9,7 +9,7 @@ from omega_miya.plugins.Group_manage.group_permissions import *
 '''
 
 
-@on_command('help', aliases=['使用帮助', '帮助'], only_to_me=False, permission=permission.EVERYBODY)
+@on_command('help', aliases=['?', '？', '使用帮助', '帮助'], only_to_me=False, permission=permission.EVERYBODY)
 async def _(session: CommandSession):
     group_id = session.event.group_id
     session_type = session.event.detail_type

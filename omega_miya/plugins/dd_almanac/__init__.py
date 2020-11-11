@@ -32,10 +32,11 @@ async def almanac(session: CommandSession):
     else:
         log.logger.info(f'{__name__}: 用户: {session.event.user_id} 在{session_type}环境中使用了命令, 已中止命令执行')
         return
-    dd_almanac = session.state['whos_almanac']
+    user_name = session.state['whos_almanac']
+    user_id = session.event.user_id
     try:
         # 看黄历
-        almanac_result = await get_almanac_for_dd(user=dd_almanac)
+        almanac_result = await get_almanac_for_dd(user_id=user_id,user_name=user_name)
         # 向用户发送结果
         await session.send(almanac_result)
     except Exception as e:
@@ -55,15 +56,12 @@ async def _(session: CommandSession):
         return
     else:
         return
-    # 去掉消息首尾的空白符
-    stripped_arg = session.current_arg_text.strip()
 
-    if session.is_first_run:
-        # 该命令第一次运行（第一次进入命令会话）
-        if stripped_arg:
-            # 第一次运行参数不为空
-            session.state['whos_almanac'] = stripped_arg
-        elif not stripped_arg:
-            # 参数为空则把用户昵称作为默认参数
-            session.state['whos_almanac'] = dict(session.event.items())['sender']['nickname']
-        return
+    # 求签者昵称, 优先使用群昵称
+    user_name = session.event['sender']['card']
+    if not user_name:
+        user_name = session.event['sender']['nickname']
+
+    session.state['whos_almanac'] = user_name
+
+    return

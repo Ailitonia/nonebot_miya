@@ -32,61 +32,104 @@ async def stickermacker(session: CommandSession):
     else:
         log.logger.info(f'{__name__}: 用户: {session.event.user_id} 在{session_type}环境中使用了命令, 已中止命令执行')
         return
+
+    # 定义模板名称、类型, 处理模板正则
+    sticker_temp = {
+        '默认': {'name': 'default', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
+        '白底': {'name': 'whitebg', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
+        '小天使': {'name': 'littleangel', 'type': 'default', 'text_part': 1, 'help_msg': '该模板不支持gif'},
+        '有内鬼': {'name': 'traitor', 'type': 'static', 'text_part': 1, 'help_msg': '该模板字数限制100（x）'},
+        '王境泽': {'name': 'wangjingze', 'type': 'gif', 'text_part': 4, 'help_msg': '请检查文本分段'},
+        '为所欲为': {'name': 'sorry', 'type': 'gif', 'text_part': 9, 'help_msg': '请检查文本分段'}
+    }
+    name_msg = ''
+    name_re = r'^(Placeholder'
+    for item in sticker_temp.keys():
+        name_msg += f'\n【{item}】'
+        name_re += fr'|{item}'
+    name_re += r')$'
+
+    temp_msg = f'请输入你想要制作的表情包模板: {name_msg}'
+
     # 从会话状态（session.state）中获取模板名称, 如果当前不存在, 则询问用户
-    temp_msg = f'请输入你想要制作的表情包模板: \n【默认】\n【小天使】'
-    sticker_temp = session.get('sticker_temp', prompt=temp_msg,
-                               arg_filters=[controllers.handle_cancellation(session),
-                                            validators.not_empty('输入不能为空~'),
-                                            validators.match_regex(r'^(默认|小天使)$', '没有这个模板, 请重新输入~',
-                                                                   fullmatch=True)])
+    get_sticker_temp = session.get('sticker_temp', prompt=temp_msg,
+                                   arg_filters=[controllers.handle_cancellation(session),
+                                                validators.not_empty('输入不能为空~'),
+                                                validators.match_regex(fr'{name_re}', '没有这个模板, 请重新输入~',
+                                                                       fullmatch=True)])
 
-    if sticker_temp == '默认':
-        sticker_temp_name = 'default'
-    elif sticker_temp == '小天使':
-        sticker_temp_name = 'littleangel'
+    if get_sticker_temp == 'Placeholder':
+        get_sticker_temp = 'default'
+
+    # 获取模板名称、类型
+    sticker_temp_name = sticker_temp[get_sticker_temp]['name']
+    sticker_temp_type = sticker_temp[get_sticker_temp]['type']
+    sticker_temp_text_part = sticker_temp[get_sticker_temp]['text_part']
+
+    # 判断该模板表情图片来源
+    if sticker_temp_type in ['static', 'gif']:
+        sticker_image_url = 'null'
     else:
-        sticker_temp_name = 'default'
+        image_msg = f'请发送你想要制作的表情包的图片: '
+        session.get('sticker_image', prompt=image_msg,
+                    arg_filters=[controllers.handle_cancellation(session),
+                                 validators.not_empty('输入不能为空~'),
+                                 validators.match_regex(r'^(\[CQ\:image\,file\=)', '你发送的似乎不是图片呢, 请重新发送~',
+                                                        fullmatch=False)])
+        if session.current_key == 'sticker_image':
+            # aiocqhttp 可直接获取url
+            try:
+                session.state['sticker_image_url'] = session.current_arg_images[0]
+            except Exception as e:
+                log.logger.debug(f'{__name__}: stickermacker: {e}. 在Mirai框架中运行')
+                # mirai无法直接获取图片url
+                # 针对mirai-native的cqhttp插件的cq码适配
+                if session_type == 'group':
+                    imageid = re.sub(r'^(\[CQ:image,file={)', '', session.current_arg)
+                    imageid = re.sub(r'(}\.mirai\.mnimg])$', '', imageid)
+                    imageid = re.sub(r'-', '', imageid)
+                    imageurl = f'https://gchat.qpic.cn/gchatpic_new/0/0-0-{imageid}/0?term=2'
+                    session.state['sticker_image_url'] = imageurl
+                elif session_type == 'private':
+                    imageid = re.sub(r'^(\[CQ:image,file=/)', '', session.current_arg)
+                    imageid = re.sub(r'(\.mnimg])$', '', imageid)
+                    imageurl = f'https://gchat.qpic.cn/gchatpic_new/0/{imageid}/0?term=2'
+                    session.state['sticker_image_url'] = imageurl
+        sticker_image_url = session.state['sticker_image_url']
 
-    image_msg = f'请发送你想要制作的表情包的图片: '
-    session.get('sticker_image', prompt=image_msg,
-                arg_filters=[controllers.handle_cancellation(session),
-                             validators.not_empty('输入不能为空~'),
-                             validators.match_regex(r'^(\[CQ\:image\,file\=)', '你发送的似乎不是图片呢, 请重新发送~',
-                                                    fullmatch=False)])
-    if session.current_key == 'sticker_image':
-        # aiocqhttp 可直接获取url
-        try:
-            session.state['sticker_image_url'] = session.current_arg_images[0]
-        except Exception as e:
-            log.logger.debug(f'{__name__}: stickermacker: {e}. 在Mirai框架中运行')
-            # mirai无法直接获取图片url
-            # 针对mirai-native的cqhttp插件的cq码适配
-            if session_type == 'group':
-                imageid = re.sub(r'^(\[CQ:image,file={)', '', session.current_arg)
-                imageid = re.sub(r'(}\.mirai\.mnimg])$', '', imageid)
-                imageid = re.sub(r'-', '', imageid)
-                imageurl = f'https://gchat.qpic.cn/gchatpic_new/0/0-0-{imageid}/0?term=2'
-                session.state['sticker_image_url'] = imageurl
-            elif session_type == 'private':
-                imageid = re.sub(r'^(\[CQ:image,file=/)', '', session.current_arg)
-                imageid = re.sub(r'(\.mnimg])$', '', imageid)
-                imageurl = f'https://gchat.qpic.cn/gchatpic_new/0/{imageid}/0?term=2'
-                session.state['sticker_image_url'] = imageurl
-
-    text_msg = f'请输入你想要制作的表情包的文字: \n注意: 不同模板适用的文字字数有所区别'
+    # 获取制作表情包所需文字
+    if sticker_temp_text_part > 1:
+        text_msg = f'请输入你想要制作的表情包的文字: \n当前模板文本分段数:【{sticker_temp_text_part}】' \
+                   f'\n\n注意: 请用【#】号分割文本不同段落，不同模板适用的文字字数及段落数有所区别'
+    else:
+        text_msg = f'请输入你想要制作的表情包的文字: \n注意: 不同模板适用的文字字数有所区别'
     sticker_text = session.get('sticker_text', prompt=text_msg,
                                arg_filters=[controllers.handle_cancellation(session),
                                             validators.not_empty('输入不能为空~')])
-    sticker_image_url = session.state['sticker_image_url']
+
+    if len(sticker_text.strip().split('#')) != sticker_temp_text_part:
+        eg_msg = r'我就是饿死#死外边 从这里跳下去#也不会吃你们一点东西#真香'
+        await session.send(f"表情制作失败QAQ, 文本分段数错误\n当前模板文本分段数:【{sticker_temp_text_part}】\n\n示例: \n{eg_msg}")
+        log.logger.warning(f'{__name__}: 群组: {group_id}, 用户: {session.event.user_id} 制作表情时失败, 文本分段数错误.')
+        return
+
     try:
-        sticker_path = await sticker_maker_main(url=sticker_image_url, temp=sticker_temp_name, text=sticker_text)
+        sticker_path = await sticker_maker_main(url=sticker_image_url, temp=sticker_temp_name, text=sticker_text,
+                                                sticker_temp_type=sticker_temp_type)
         if not sticker_path:
-            await session.send('表情制作失败, 无法获取图片链接')
-            log.logger.warning(f'{__name__}: 群组: {group_id}, 用户: {session.event.user_id} 制作表情时失败, 无法获取图片链接')
+            await session.send(f"表情制作失败QAQ, 请注意模板要求\n小提示:{sticker_temp[get_sticker_temp]['help_msg']}")
+            log.logger.warning(f'{__name__}: 群组: {group_id}, 用户: {session.event.user_id} 制作表情时失败.')
             return
+
+        '''
         # 发送base64图片
         sticker_b64 = await pic_2_base64(sticker_path)
         sticker_seg = MessageSegment.image(sticker_b64)
+        '''
+
+        # 直接用文件构造消息段
+        sticker_seg = MessageSegment.image(f'file:///{sticker_path}')
+
         # 发送图片
         await session.send(sticker_seg)
         log.logger.info(f'{__name__}: 群组: {group_id}, 用户: {session.event.user_id} 成功制作了一个表情')

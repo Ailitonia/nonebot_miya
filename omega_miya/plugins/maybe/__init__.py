@@ -34,8 +34,10 @@ async def maybe(session: CommandSession):
     # 从会话状态（session.state）中获取事项, 如果当前不存在, 则询问用户
     divination = session.get('divination', prompt='你想问什么事呢？')
     try:
-        # 求签者昵称
-        divination_user = dict(session.event.items())['sender']['nickname']
+        # 求签者昵称, 优先使用群昵称
+        divination_user = session.event['sender']['card']
+        if not divination_user:
+            divination_user = session.event['sender']['nickname']
         # 求签
         divination_result = await get_divination_of_thing(divination=divination, divination_user=user_id)
         # 向用户发送结果
