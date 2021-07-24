@@ -55,7 +55,7 @@ async def refresh_check_list():
     # week=None,
     # day_of_week=None,
     # hour=None,
-    minute='*/5',
+    minute='*/3',
     # second=None,
     # start_date=None,
     # end_date=None,

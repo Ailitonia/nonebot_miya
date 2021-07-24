@@ -200,12 +200,10 @@ async def pixivsion_check():
         return
     for article in new_article_list:
         try:
-            notice_msg = '新的Pixivision特辑！'
-            intro_msg = f"《{article['title']}》\n\n{article['description']}\n{article['url']}"
+            msg = f"新的Pixivision特辑！\n\n《{article['title']}》\n\n{article['description']}\n{article['url']}"
             for group in notice_group:
                 try:
-                    await bot.send_group_msg(group_id=group, message=notice_msg)
-                    await bot.send_group_msg(group_id=group, message=intro_msg)
+                    await bot.send_group_msg(group_id=group, message=msg)
                 except Exception as e:
                     log.logger.warning(f"{__name__}: article简介信息发送失败: {e}, Group: {group}")
                     continue

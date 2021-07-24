@@ -1,5 +1,5 @@
 from nonebot import on_request, RequestSession, on_notice, NoticeSession, get_bot, log
-from aiocqhttp import Event
+from aiocqhttp import Event, MessageSegment
 from omega_miya.plugins.Group_manage.group_permissions import *
 from omega_miya.plugins.Auto_manage.block_list import BLOCK_GROUP
 
@@ -66,7 +66,8 @@ async def new_increase(session: NoticeSession):
     if not has_notice_permissions(group_id=group_id):
         return
     # 发送欢迎消息
-    await session.send('欢迎新朋友～\n进群请先看群公告~\n想知道我的用法请发送/help')
+    at_seg = MessageSegment.at(user_id=session.event.user_id)
+    await session.send(f'{at_seg}欢迎新朋友～\n进群请先看群公告~\n想知道我的用法请发送/help')
     log.logger.info(f'{__name__}: 群组: {session.event.group_id}, 有新用户进群')
     return
 

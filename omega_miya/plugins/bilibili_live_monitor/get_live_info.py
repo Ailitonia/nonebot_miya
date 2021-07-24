@@ -203,22 +203,6 @@ async def clean_group_live_sub_in_db(group_id) -> bool:
     return True
 
 
-# 初始化直播间状态
-async def init_live_status(room_id) -> int:
-    url = LIVE_API_URL
-    payload = {'id': room_id}
-    live_status = await fetch(url=url, paras=payload)
-    return int(live_status['data']['live_status'])
-
-
-# 初始化直播间标题
-async def init_live_title(room_id) -> str:
-    url = LIVE_API_URL
-    payload = {'id': room_id}
-    live_title = await fetch(url=url, paras=payload)
-    return str(live_title['data']['title'])
-
-
 # 获取直播间信息
 async def get_live_info(room_id) -> dict:
     url = LIVE_API_URL

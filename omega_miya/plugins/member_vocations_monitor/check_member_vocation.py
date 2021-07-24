@@ -11,7 +11,7 @@ async def check_member_vocation(user_qq) -> bool:
     try:
         __user_table_id = NONEBOT_DBSESSION.query(User.id).filter(User.qq == user_qq).one()[0]
     except NoResultFound:
-        log.logger.warning(f'{__name__}: check_member_vocation ERROR: User NoResultFound.')
+        log.logger.debug(f'{__name__}: check_member_vocation ERROR: User NoResultFound, user_qq: {user_qq}.')
         return False
     except Exception as e:
         log.logger.warning(f'{__name__}: check_member_vocation ERROR: {e}, in checking user.')
@@ -52,7 +52,7 @@ async def clear_member_vocation(user_qq) -> bool:
     try:
         __user_table_id = NONEBOT_DBSESSION.query(User.id).filter(User.qq == user_qq).one()[0]
     except NoResultFound:
-        log.logger.warning(f'{__name__}: clear_member_vocation ERROR: User NoResultFound.')
+        log.logger.warning(f'{__name__}: clear_member_vocation ERROR: User NoResultFound, user_qq: {user_qq}.')
         return False
     except Exception as e:
         log.logger.warning(f'{__name__}: clear_member_vocation ERROR: {e}, in checking user.')

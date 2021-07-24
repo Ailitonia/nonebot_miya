@@ -20,28 +20,38 @@ __plugin_usage__ = r'''【B站直播间订阅】
 
 /谁在播'''
 
-# 初始化直播间标题和状态
+# 初始化直播间标题, 状态, up名称
 live_title = {}
 live_status = {}
+live_up_name = {}
 
 
 async def init_live_info():
     global live_title
     global live_status
-    try:
-        for _room_id in query_live_sub_list():
+    global live_up_name
+
+    for __room_id in query_live_sub_list():
+        try:
+            # 获取直播间信息
+            __live_info = await get_live_info(__room_id)
+
+            # 获取直播间UP名称
+            __up_uid = __live_info['uid']
+            __up_info = await get_user_info(__up_uid)
+
             # 直播状态放入live_status全局变量中
-            live_status[_room_id] = await init_live_status(_room_id)
-        log.logger.info(f'{__name__}: 已成功完成直播间状态列表初始化')
-    except Exception as err:
-        log.logger.error(f'{__name__}: 初始化直播间状态列表时发生了错误: {err}')
-    try:
-        for _room_id in query_live_sub_list():
+            live_status[__room_id] = int(__live_info['status'])
+
             # 直播间标题放入live_title全局变量中
-            live_title[_room_id] = await init_live_title(_room_id)
-        log.logger.info(f'{__name__}: 已成功完成直播间标题列表初始化')
-    except Exception as err:
-        log.logger.error(f'{__name__}: 初始化直播间标题列表时发生了错误: {err}')
+            live_title[__room_id] = str(__live_info['title'])
+
+            # 直播间up名称放入live_up_name全局变量中
+            live_up_name[__room_id] = str(__up_info['name'])
+        except Exception as err:
+            log.logger.error(f'{__name__}: 初始化直播间状态列表时发生了错误: {err}, room_id: {__room_id}')
+            continue
+    log.logger.info(f'{__name__}: 已成功完成直播间状态列表初始化')
 
 
 bot = nonebot.get_bot()
@@ -143,14 +153,10 @@ async def new_live_sub(session: CommandSession):
                                        f'试图订阅直播间{__sub_id}时发生了错误, 添加群组订阅数据库操作失败, 错误信息见日志.')
                     return
                 # 添加直播间时需要刷新全局监控列表
-                global live_status
-                global live_title
-                for __room_id in query_live_sub_list():
-                    # 直播状态放入live_status全局变量中
-                    live_status[__room_id] = await init_live_status(__room_id)
-                for __room_id in query_live_sub_list():
-                    # 直播间标题放入live_title全局变量中
-                    live_title[__room_id] = await init_live_title(__room_id)
+
+                # 执行一次初始化
+                await init_live_info()
+
                 await session.send(f'已成功的订阅【{__up_name}】的直播间！')
                 log.logger.info(f'{__name__}: 群组: {group_id}, 用户: {session.event.user_id} 已成功添加: {__up_name} 的直播间订阅')
             except Exception as e:
@@ -231,7 +237,7 @@ async def query_group_sub(session: CommandSession):
     # week=None,
     # day_of_week=None,
     # hour=None,
-    minute='*/1',
+    minute='*/2',
     # second=None,
     # start_date=None,
     # end_date=None,
@@ -250,15 +256,9 @@ async def live_check():
         except Exception as get_info_err:
             log.logger.warning(f'{__name__}: 试图检查直播间: {room_id} 状态时发生了错误: {get_info_err}')
             return
-        try:
-            # 这个直播间的信息和up名称
-            __live_info = await get_live_info(room_id)
-            __up_uid = __live_info['uid']
-            __up_info = await get_user_info(__up_uid)
-            __up_name = __up_info['name']
-        except Exception as get_user_err:
-            log.logger.warning(f'{__name__}: 试图获取直播间: {room_id} 信息时发生了错误: {get_user_err}')
-            return
+
+        __up_name = live_up_name[room_id]
+
         # 检查是否是已开播状态, 若已开播则监测直播间标题变动
         # 为避免开播时同时出现标题变更通知和开播通知, 在检测到直播状态变化时更新标题, 且仅在直播状态为直播中时发送标题变更通知
         if live_info['status'] != live_status[room_id]\
@@ -310,6 +310,11 @@ async def live_check():
                     log.logger.info(f'{__name__}: 已成功更新直播状态列表中直播间: {room_id} 的状态信息')
                 # 现在状态为直播中
                 elif live_info['status'] == 1:
+
+                    # 打一条log记录准确开播信息
+                    log.logger.info(f"{__name__}: LiveStart! Room: {room_id}/{__up_name}, Title: {live_info['title']}, "
+                                    f"TrueTime: {live_info['time']}")
+
                     msg = '{}\n{}开播啦！\n\n【{}】\n{}'.format(
                         live_info['time'], __up_name,
                         live_info['title'], live_info['url'])
@@ -340,10 +345,13 @@ async def live_check():
                 log.logger.warning(f'{__name__}: 试图向群组发送直播间: {room_id} 的直播通知时发生了错误: {get_status_err}')
 
     log.logger.debug(f"{__name__}: 计划任务: live_check, 开始检查直播间")
-    global live_status
     global live_title
+    global live_status
+    global live_up_name
+
     all_noitce_groups = query_all_notice_groups()
-    # 检查所有在订阅表里面的直播间
+
+    # 检查所有在订阅表里面的直播间(异步)
     tasks = []
     for rid in query_live_sub_list():
         tasks.append(check_user_live(rid))
@@ -352,6 +360,17 @@ async def live_check():
         log.logger.debug(f"{__name__}: 计划任务: live_check, 直播间检查完成")
     except Exception as e:
         log.logger.error(f"{__name__}: dynamic_check ERROR, {e}")
+
+    '''
+    # 检查所有在订阅表里面的直播间(使用异步会触发B站风控导致无法读取信息, 改为使用同步)
+    for rid in query_live_sub_list():
+        try:
+            await check_user_live(rid)
+        except Exception as e:
+            log.logger.error(f"{__name__}: dynamic_check ERROR, {e}")
+            continue
+    log.logger.debug(f"{__name__}: 计划任务: live_check, 直播间检查完成")
+    '''
 
 
 @on_command('check_live_status', aliases='谁在播', only_to_me=False, permission=permission.GROUP)

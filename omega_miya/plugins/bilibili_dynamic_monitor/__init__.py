@@ -203,7 +203,7 @@ async def query_group_sub(session: CommandSession):
     # week=None,
     # day_of_week=None,
     # hour=None,
-    minute='*/1',
+    minute='*/2',
     # second=None,
     # start_date=None,
     # end_date=None,
@@ -354,6 +354,19 @@ async def dynamic_check():
                                 log.logger.warning(f"{__name__}: 向群组: {group_id} "
                                                    f"发送新动态通知: {dynamic_info[num]['id']} 失败, error info: {err}.")
                                 continue
+                    # B站活动相关
+                    elif dynamic_info[num]['type'] == 2048:
+                        msg = '{}发布了一条活动相关动态！\n\n【{}】\n“{}”\n{}'.format(
+                            dynamic_info[num]['name'], dynamic_info[num]['origin'],
+                            dynamic_info[num]['content'], dynamic_info[num]['url'])
+                        for group_id in list(set(all_noitce_groups) & set(group_which_sub_dy)):
+                            try:
+                                await bot.send_group_msg(group_id=group_id, message=msg)
+                                log.logger.info(f"{__name__}: 已成功向群组: {group_id} 发送新动态通知: {dynamic_info[num]['id']}")
+                            except Exception as err:
+                                log.logger.warning(f"{__name__}: 向群组: {group_id} "
+                                                   f"发送新动态通知: {dynamic_info[num]['id']} 失败, error info: {err}.")
+                                continue
                     elif dynamic_info[num]['type'] == -1:
                         log.logger.warning(f"未知的动态类型: {dynamic_info[num]['id']}")
                     # 更新动态内容到数据库
@@ -372,7 +385,8 @@ async def dynamic_check():
 
     log.logger.debug(f"{__name__}: 计划任务: dynamic_check, 开始检查动态")
     all_noitce_groups = query_all_notice_groups()
-    # 检查订阅表中所有的up
+
+    # 检查订阅表中所有的up(异步并发)
     tasks = []
     for uid in query_dy_sub_list():
         tasks.append(check_user_dynamic(dy_uid=uid))
@@ -381,3 +395,14 @@ async def dynamic_check():
         log.logger.debug(f"{__name__}: 计划任务: dynamic_check, 已完成")
     except Exception as e:
         log.logger.error(f"{__name__}: error info: {e}.")
+
+    '''
+    # 检查订阅表中所有的up(使用异步并发会触发B站风控导致无法读取信息, 改为使用同步)
+    for uid in query_dy_sub_list():
+        try:
+            await check_user_dynamic(dy_uid=uid)
+        except Exception as e:
+            log.logger.error(f"{__name__}: error info: {e}.")
+            continue
+    log.logger.debug(f"{__name__}: 计划任务: dynamic_check, 已完成")
+    '''

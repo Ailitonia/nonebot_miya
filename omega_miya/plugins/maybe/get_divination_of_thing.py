@@ -4,6 +4,15 @@ import hashlib
 
 
 async def get_divination_of_thing(divination: str, divination_user: int) -> str:
+    # 特殊事件
+    sp_event = {
+        '打钱': '别问, 问就是大吉, 建议马上转账',
+        '单推': '大凶, 明明就是DD, 我还在别的女人直播间里见过你'
+    }
+    if divination in sp_event.keys():
+        result_text = sp_event[divination]
+        return result_text
+
     # 用qq、日期、所求事项生成随机种子
     random_seed_str = str([divination, divination_user, datetime.date.today()])
     md5 = hashlib.md5()

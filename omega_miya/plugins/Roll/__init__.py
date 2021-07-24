@@ -53,7 +53,10 @@ async def roll(session: CommandSession):
             return
         dice_num = int(dice_num)
         dice_side = int(dice_side)
-        if dice_num < 0 or dice_side < 0:
+        if dice_num > 1000 or dice_side > 1000:
+            await session.send(f'【错误】谁没事干扔那么多骰子啊(╯°□°）╯︵ ┻━┻')
+            return
+        if dice_num <= 0 or dice_side <= 0:
             await session.send(f'【错误】你掷出了不存在的骰子, 只有上帝知道结果是多少')
             return
         dice_result = 0

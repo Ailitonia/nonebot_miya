@@ -273,14 +273,16 @@ async def get_dynamic_info(dy_uid) -> dict:
         '''
         动态type对应如下: 
         1 转发
-        2 消息（有图片）
-        4 消息（无图片）
+        2 消息(有图片)
+        4 消息(无图片)
         8 视频投稿
-        16 小视频（含playurl地址）
+        16 小视频(含playurl地址)
         32 番剧更新
         64 专栏
         256 音频
-        512 番剧更新（含详细信息）
+        512 番剧更新(含详细信息)
+        1024 未知(没遇见过)
+        2048 B站活动相关(直播日历, 草图?计划?之内的)(大概是了)
         '''
         # type=1, 这是一条转发的动态
         if cards['desc']['type'] == 1:
@@ -453,6 +455,21 @@ async def get_dynamic_info(dy_uid) -> dict:
             title = card['apiSeasonInfo']['title']
             card_dic = dict({'id': dy_id, 'type': 512, 'url': url,
                              'name': name, 'content': '', 'origin': title})
+            _DYNAMIC_INFO[card_num] = card_dic
+        # type=2048, B站活动相关
+        elif cards['desc']['type'] == 2048:
+            # 这是动态的ID
+            dy_id = cards['desc']['dynamic_id']
+            # 这是动态的链接
+            url = DYNAMIC_URL + str(cards['desc']['dynamic_id'])
+            # 这是动态发布者的名称
+            name = cards['desc']['user_profile']['info']['uname']
+            # 这是动态的内容
+            content = card['vest']['content']
+            # 这是日历标题和描述
+            origin = str(card['sketch']['title']) + ' - ' + str(card['sketch']['desc_text'])
+            card_dic = dict({'id': dy_id, 'type': 2048, 'url': url,
+                             'name': name, 'content': content, 'origin': origin})
             _DYNAMIC_INFO[card_num] = card_dic
         else:
             # 其他未知类型
