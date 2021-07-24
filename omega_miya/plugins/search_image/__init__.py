@@ -101,7 +101,7 @@ async def searchimage(session: CommandSession):
         __result = []
         for __item in __result_json['results']:
             try:
-                if int(float(__item['header']['similarity'])) < 60:
+                if int(float(__item['header']['similarity'])) < 75:
                     continue
                 else:
                     __result.append({'similarity': __item['header']['similarity'],
